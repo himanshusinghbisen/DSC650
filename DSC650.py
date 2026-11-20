@@ -14,7 +14,7 @@ spark = (
     .getOrCreate()
 )
 
-df = spark.sql("SELECT * FROM healthcare_db.hospital_admissions")
+df = spark.sql("SELECT * FROM healthcare_db.hospital_readmissions")
 
 # Optional: set exact target column name if known; otherwise defaults to the last column
 preferred_targets = ["readmitted", "readmitted_30d", "readmission", "target", "label"]
