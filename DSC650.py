@@ -1,4 +1,5 @@
 import happybase
+from pathlib import Path
 from pyspark.ml import Pipeline
 from pyspark.ml.classification import RandomForestClassifier
 from pyspark.ml.evaluation import BinaryClassificationEvaluator, MulticlassClassificationEvaluator
@@ -116,6 +117,22 @@ metrics_rows = [
     ("hospital_admissions_rf", "metrics:accuracy", f"{accuracy:.4f}"),
     ("hospital_admissions_rf", "metrics:f1", f"{f1_score:.4f}"),
 ]
+
+# Write the model results to the local filesystem alongside this script.
+local_output_dir = Path(__file__).resolve().parent / "spark_output"
+metrics_df = spark.createDataFrame(
+    metrics_rows,
+    ["model", "metric", "value"],
+)
+metrics_df.coalesce(1).write.mode("overwrite").option("header", "true").csv(
+    str(local_output_dir / "metrics")
+)
+predictions.select(target_col, "label", "prediction").coalesce(1).write.mode(
+    "overwrite"
+).option("header", "true").csv(str(local_output_dir / "predictions"))
+
+print(f"Local metrics output: {local_output_dir / 'metrics'}")
+print(f"Local predictions output: {local_output_dir / 'predictions'}")
 
 def write_to_hbase_partition(partition):
     conn = happybase.Connection("master")
