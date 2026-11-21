@@ -1,5 +1,4 @@
 import happybase
-from pathlib import Path
 from pyspark.ml import Pipeline
 from pyspark.ml.classification import RandomForestClassifier
 from pyspark.ml.evaluation import BinaryClassificationEvaluator, MulticlassClassificationEvaluator
@@ -118,21 +117,32 @@ metrics_rows = [
     ("hospital_admissions_rf", "metrics:f1", f"{f1_score:.4f}"),
 ]
 
-# Write the model results to the local filesystem alongside this script.
-local_output_dir = Path(__file__).resolve().parent / "spark_output"
-metrics_df = spark.createDataFrame(
-    metrics_rows,
-    ["model", "metric", "value"],
-)
-metrics_df.coalesce(1).write.mode("overwrite").option("header", "true").csv(
-    str(local_output_dir / "metrics")
-)
-predictions.select(target_col, "label", "prediction").coalesce(1).write.mode(
-    "overwrite"
-).option("header", "true").csv(str(local_output_dir / "predictions"))
+# Save model results to HDFS.
+output_path = "hdfs:///tmp/week4_output"
 
-print(f"Local metrics output: {local_output_dir / 'metrics'}")
-print(f"Local predictions output: {local_output_dir / 'predictions'}")
+hadoop_conf = spark.sparkContext._jsc.hadoopConfiguration()
+filesystem = spark.sparkContext._jvm.org.apache.hadoop.fs.FileSystem.get(hadoop_conf)
+for subdirectory in ("metrics", "predictions"):
+    hdfs_path = spark.sparkContext._jvm.org.apache.hadoop.fs.Path(
+        f"{output_path}/{subdirectory}"
+    )
+    if filesystem.exists(hdfs_path):
+        filesystem.delete(hdfs_path, True)
+
+metrics_rdd = spark.sparkContext.parallelize(
+    [f"{row_key},{col_qual},{value}" for row_key, col_qual, value in metrics_rows]
+)
+metrics_rdd.saveAsTextFile(f"{output_path}/metrics")
+
+predictions_rdd = predictions.rdd.map(
+    lambda row: (
+        f"{row[target_col]},{row['label']},{row['prediction']}"
+    )
+)
+predictions_rdd.saveAsTextFile(f"{output_path}/predictions")
+
+print(f"HDFS metrics output: {output_path}/metrics")
+print(f"HDFS predictions output: {output_path}/predictions")
 
 def write_to_hbase_partition(partition):
     conn = happybase.Connection("master")
