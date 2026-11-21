@@ -118,7 +118,7 @@ metrics_rows = [
 ]
 
 # Save model results to HDFS.
-output_path = "hdfs:///tmp/week4_output"
+output_path = "hdfs:///tmp/week11_output"
 
 hadoop_conf = spark.sparkContext._jsc.hadoopConfiguration()
 filesystem = spark.sparkContext._jvm.org.apache.hadoop.fs.FileSystem.get(hadoop_conf)
